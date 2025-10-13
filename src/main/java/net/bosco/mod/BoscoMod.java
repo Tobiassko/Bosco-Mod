@@ -1,5 +1,6 @@
 package net.bosco.mod;
 
+import net.bosco.mod.block.ModBlocks;
 import net.bosco.mod.item.ModItems;
 import net.fabricmc.api.ModInitializer;
 
@@ -13,5 +14,6 @@ public class BoscoMod implements ModInitializer {
 	@Override
 	public void onInitialize() {
         ModItems.registerModItems();
+        ModBlocks.registerModBlocks();
 	}
 }
