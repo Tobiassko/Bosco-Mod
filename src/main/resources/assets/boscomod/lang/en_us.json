@@ -1,5 +1,8 @@
 {
   "item.boscomod.test_item": "Test Item",
+  "item.boscomod.bosco_spawn_egg": "Bosco Spawn Egg",
+  "item.boscomod.bosco_spawner": "Bosco",
 
-  "block.boscomod.piss_water": "Piss"
+  "block.boscomod.piss_water": "Piss",
+  "entity.boscomod.bosco": "Bosco"
 }
