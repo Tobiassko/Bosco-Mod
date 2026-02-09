@@ -110,9 +110,42 @@ public class BoscoEntity extends FlyingEntity {
                 .add(EntityAttributes.GENERIC_MAX_HEALTH, 40)
                 .add(EntityAttributes.GENERIC_FLYING_SPEED, 5)
                 .add(EntityAttributes.GENERIC_MOVEMENT_SPEED, 0.3)
-                .add(EntityAttributes.GENERIC_ATTACK_DAMAGE, 10)
+                .add(EntityAttributes.GENERIC_ATTACK_DAMAGE, 5)
                 .add(EntityAttributes.GENERIC_ARMOR, 15)
                 .add(EntityAttributes.GENERIC_FOLLOW_RANGE, 48);
+    }
+    // ==================== Ignore I-Frames ====================
+
+    @Override
+    public boolean tryAttack(Entity target) {
+        // Reset the target's invincibility frames so our damage always goes through
+        if (target instanceof LivingEntity livingTarget) {
+            livingTarget.hurtTime = 0;
+            livingTarget.timeUntilRegen = 0;
+        }
+
+        float damage = (float) this.getAttributeValue(EntityAttributes.GENERIC_ATTACK_DAMAGE);
+        DamageSource damageSource = this.getDamageSources().mobAttack(this);
+
+        boolean success = target.damage(damageSource, damage);
+
+        if (success && target instanceof LivingEntity livingTarget) {
+            // Apply knockback
+            double knockback = this.getAttributeValue(EntityAttributes.GENERIC_ATTACK_KNOCKBACK);
+            if (knockback > 0) {
+                livingTarget.takeKnockback(
+                        knockback * 0.5,
+                        Math.sin(this.getYaw() * ((float) Math.PI / 180F)),
+                        -Math.cos(this.getYaw() * ((float) Math.PI / 180F))
+                );
+            }
+
+            // Reset i-frames again AFTER the hit so the next attack also goes through
+            livingTarget.hurtTime = 0;
+            livingTarget.timeUntilRegen = 0;
+        }
+
+        return success;
     }
 
     // ==================== Prevent Fall Damage ====================
@@ -265,7 +298,7 @@ public class BoscoEntity extends FlyingEntity {
                 this.bosco.setAttacking(true);
                 this.bosco.setAttackingState(true);  // Sync to client
                 if (this.cooldown <= 0) {
-                    this.cooldown = 20;
+                    this.cooldown = 4;
                     this.bosco.tryAttack(target);
                 }
             } else {
