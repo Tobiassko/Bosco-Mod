@@ -9,6 +9,9 @@ import net.minecraft.entity.ai.pathing.EntityNavigation;
 import net.minecraft.entity.attribute.DefaultAttributeContainer;
 import net.minecraft.entity.damage.DamageSource;
 import net.minecraft.entity.mob.FlyingEntity;
+import net.minecraft.entity.data.DataTracker;
+import net.minecraft.entity.data.TrackedData;
+import net.minecraft.entity.data.TrackedDataHandlerRegistry;
 import net.minecraft.entity.mob.MobEntity;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.nbt.NbtCompound;
@@ -19,6 +22,8 @@ import org.jetbrains.annotations.Nullable;
 import java.util.UUID;
 
 public class BoscoEntity extends FlyingEntity {
+    private static final TrackedData<Boolean> ATTACKING =
+            DataTracker.registerData(BoscoEntity.class, TrackedDataHandlerRegistry.BOOLEAN);
     public final AnimationState idleAnimationState = new AnimationState();
     public final AnimationState attackAnimationState = new AnimationState();
     public int attackAnimationTimeout = 0;
@@ -90,7 +95,7 @@ public class BoscoEntity extends FlyingEntity {
     protected void initGoals() {
         this.goalSelector.add(0, new SwimGoal(this));
         this.goalSelector.add(1, new BoscoMeleeAttackGoal(this, 2));
-        this.goalSelector.add(2, new BoscoFollowOwnerGoal(this, 3, 10.0F, 3.0F));
+        this.goalSelector.add(2, new BoscoFollowOwnerGoal(this, 5, 20.0F, 6.0F));
         this.goalSelector.add(3, new LookAtEntityGoal(this, PlayerEntity.class, 8.0F));
         this.goalSelector.add(4, new LookAroundGoal(this));
 
@@ -103,9 +108,10 @@ public class BoscoEntity extends FlyingEntity {
     public static DefaultAttributeContainer.Builder createAttributes() {
         return MobEntity.createMobAttributes()
                 .add(EntityAttributes.GENERIC_MAX_HEALTH, 40)
-                .add(EntityAttributes.GENERIC_FLYING_SPEED, 3)
+                .add(EntityAttributes.GENERIC_FLYING_SPEED, 5)
                 .add(EntityAttributes.GENERIC_MOVEMENT_SPEED, 0.3)
-                .add(EntityAttributes.GENERIC_ATTACK_DAMAGE, 50)
+                .add(EntityAttributes.GENERIC_ATTACK_DAMAGE, 10)
+                .add(EntityAttributes.GENERIC_ARMOR, 15)
                 .add(EntityAttributes.GENERIC_FOLLOW_RANGE, 48);
     }
 
@@ -131,6 +137,7 @@ public class BoscoEntity extends FlyingEntity {
     // ==================== Animation ====================
 
     private void setupAnimationStates() {
+        // Idle animation
         if (this.idleAnimationTimeout <= 0) {
             this.idleAnimationTimeout = 60;
             this.idleAnimationState.start(this.age);
@@ -138,15 +145,29 @@ public class BoscoEntity extends FlyingEntity {
             --this.idleAnimationTimeout;
         }
 
-        if (this.isAttacking() && attackAnimationTimeout <= 0) {
-            attackAnimationTimeout = 15; // length of attack anim in ticks
+        // Attack animation - use the synced state
+        if (this.isAttackingState() && attackAnimationTimeout <= 0) {
+            attackAnimationTimeout = 15;
             attackAnimationState.start(this.age);
         } else {
             --this.attackAnimationTimeout;
         }
-        if (!this.isAttacking()) {
+        if (!this.isAttackingState()) {
             attackAnimationState.stop();
         }
+    }
+
+    @Override
+    protected void initDataTracker(DataTracker.Builder builder) {
+        super.initDataTracker(builder);
+        builder.add(ATTACKING, false);
+    }
+    public void setAttackingState(boolean attacking) {
+        this.dataTracker.set(ATTACKING, attacking);
+    }
+
+    public boolean isAttackingState() {
+        return this.dataTracker.get(ATTACKING);
     }
 
     @Override
@@ -166,7 +187,7 @@ public class BoscoEntity extends FlyingEntity {
         }
 
         // debug info - shows current HP, attack damage, speed, and current goal (attacking/following/idle)
-        boolean debugMode = true;
+        boolean debugMode = false;
 
         if (!this.getWorld().isClient() && debugMode) {
             String currentGoal = "None";
@@ -223,6 +244,7 @@ public class BoscoEntity extends FlyingEntity {
         @Override
         public void stop() {
             this.bosco.setAttacking(false);
+            this.bosco.setAttackingState(false);
             this.bosco.getNavigation().stop();
         }
 
@@ -241,12 +263,14 @@ public class BoscoEntity extends FlyingEntity {
 
             if (distanceSq <= attackReach + 4.0) {
                 this.bosco.setAttacking(true);
+                this.bosco.setAttackingState(true);  // Sync to client
                 if (this.cooldown <= 0) {
                     this.cooldown = 20;
                     this.bosco.tryAttack(target);
                 }
             } else {
                 this.bosco.setAttacking(false);
+                this.bosco.setAttackingState(false);  // Sync to client
             }
         }
     }
